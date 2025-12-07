@@ -2,9 +2,10 @@ FROM python:3.13-slim
 
 WORKDIR /code
 
-COPY ./requirements.txt /code/requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+COPY . /code/user_service
 
-COPY ./app /code/app
+RUN pip install --no-cache-dir --upgrade -r /code/user_service/requirements.txt
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
+ENV PYTHONPATH=/code
+
+CMD ["uvicorn", "user_service.app.main:app", "--host", "0.0.0.0", "--port", "80"]
