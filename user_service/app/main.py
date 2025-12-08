@@ -1,15 +1,16 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
-from user_service.app.auth.routes import router as auth_router
-from user_service.app.database import engine
-from user_service.app.models import Base
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from .models import UserCreate, UserInDB
-from . import crud
+from user_service.app.auth.routes import router as auth_router
+from user_service.app.models import UserCreate, UserInDB
+from user_service.app.db import get_db
+from user_service.app.crud import create_user, get_user, list_users
 
 app = FastAPI(title="Aim Clicker User Service")
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,29 +18,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
-
 # Include auth routes
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 
-
+# Health check endpoint
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
-@app.post("/users", response_model=UserInDB)
-async def create_user(user: UserCreate):
-    return await crud.create_user(user)
 
+# Create user (direct DB access without auth route)
+@app.post("/users", response_model=UserInDB)
+async def create_user(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
+    return await crud.create_user(db, user)
+
+
+# Get user by ID
 @app.get("/users/{user_id}", response_model=UserInDB)
-async def get_user(user_id: str):
-    user = await crud.get_user(user_id)
+async def get_user(user_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+    user = await crud.get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
 
+# List users
 @app.get("/users", response_model=List[UserInDB])
-async def list_users(limit: int = 50):
-    return await crud.list_users(limit=limit)
+async def list_users(limit: int = 50, db: AsyncIOMotorDatabase = Depends(get_db)):
+    return await crud.list_users(db, limit=limit)
