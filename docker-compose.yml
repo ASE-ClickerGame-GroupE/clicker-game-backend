@@ -12,30 +12,32 @@ services:
     ports:
       - "8000:80"
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017
-      - MONGODB_DB=aim_clicker
-    depends_on:
-      - mongodb
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB=${MONGODB_DB}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM}
+
 
   leaderboard_service:
     build: ./leaderboard_service
     ports:
       - "8001:80"
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017
-      - MONGODB_DB=aim_clicker
-    depends_on:
-      - mongodb
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB=${MONGODB_DB}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM}
+
 
   user_service:
     build: ./user_service
     ports:
       - "8002:80"
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017
-      - MONGODB_DB=aim_clicker
-    depends_on:
-      - mongodb
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB=${MONGODB_DB}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM}
 
 volumes:
   mongodb_data:
