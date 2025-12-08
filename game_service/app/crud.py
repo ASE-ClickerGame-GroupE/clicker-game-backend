@@ -6,7 +6,7 @@ from .db import get_db
 from .models import GameSessionInDB
 
 
-async def start_game(user_id: str, difficulty: str) -> str:
+async def start_game(user_id: str) -> str:
     """
     Create a new game session document in MongoDB.
     """
@@ -15,11 +15,8 @@ async def start_game(user_id: str, difficulty: str) -> str:
 
     doc = {
         "session_id": session_id,
-        "user_id": user_id,
-        "difficulty": difficulty,
-        "score": 0,
-        "hits": 0,
-        "misses": 0,
+        "user_id": user_id, 
+        "scores": 0,
         "started_at": time.time(),
         "finished_at": None,
     }
@@ -52,9 +49,8 @@ async def update_click(
     if not session:
         return None
 
-    score = session.score
-    hits = session.hits
-    misses = session.misses
+    score = session.scores
+  
 
     if hit:
         hits += 1
@@ -65,7 +61,7 @@ async def update_click(
 
     await db.sessions.update_one(
         {"session_id": session_id},
-        {"$set": {"score": score, "hits": hits, "misses": misses}},
+        {"$set": {"scores": score}},
     )
 
     return await get_session(session_id)
