@@ -2,6 +2,13 @@ from pydantic import BaseModel
 from typing import Optional
 
 
+class GameSessionPublicResponse(BaseModel):
+    id: str
+    user_id: str
+    scores: int
+    started_at: float
+    finished_at: Optional[float] = None
+
 class StartGameRequest(BaseModel):
     user_id: str
    
