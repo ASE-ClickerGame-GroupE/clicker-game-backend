@@ -27,9 +27,9 @@ class FinishGameRequest(BaseModel):
 
 
 class FinishGameResponse(BaseModel):
-    scores: int 
+
     session_id: str
-    finished_at: Optional[float] = None
+
 
 
 class GameSessionInDB(BaseModel):

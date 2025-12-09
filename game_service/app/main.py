@@ -40,7 +40,7 @@ async def click(body: ClickEvent):
         raise HTTPException(status_code=404, detail="Invalid session_id")
 
     return ClickResponse(
-        score=session.scores
+        scores=session.scores
        
     )
 
@@ -54,7 +54,6 @@ async def finish(body: FinishGameRequest):
     duration_s = (session.finished_at or session.started_at) - session.started_at
 
     return FinishGameResponse(
-        scores=session.scores,
         session_id=session.session_id
         
     )
