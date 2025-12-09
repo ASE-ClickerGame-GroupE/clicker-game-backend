@@ -67,7 +67,11 @@ async def update_click(
     return await get_session(session_id)
 
 
-async def finish_game(session_id: str) -> Optional[GameSessionInDB]:
+async def finish_game(
+        session_id: str,
+        final_score: Optional[int] = None,
+        finished_at: Optional[float] = None,
+        ) -> Optional[GameSessionInDB]:
     """
     Mark game as finished and set finished_at timestamp.
     """
@@ -76,11 +80,17 @@ async def finish_game(session_id: str) -> Optional[GameSessionInDB]:
     if not session:
         return None
 
-    finished_at = time.time()
+    if finished_at is None:
+        finished_at = time.time()
+
+    update_data = {"finished_at": finished_at}
+
+    if final_score is not None:
+        update_data["scores"] = final_score
 
     await db.sessions.update_one(
         {"session_id": session_id},
-        {"$set": {"finished_at": finished_at}},
+        {"$set": update_data},
     )
 
     return await get_session(session_id)
