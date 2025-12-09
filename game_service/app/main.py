@@ -1,4 +1,5 @@
 import time
+from typing import Optional, List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,7 @@ from .models import (
     ClickResponse,
     FinishGameRequest,
     FinishGameResponse,
+    GameSessionPublicResponse
 )
 from . import crud
 
@@ -27,6 +29,10 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+@app.get("/game", response_model=List[GameSessionPublicResponse])
+async def get_games(user_id: Optional[str] = None):
+    return await crud.list_sessions(user_id=user_id)
 
 
 @app.post("/game/start", response_model=StartGameResponse)

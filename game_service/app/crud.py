@@ -1,10 +1,31 @@
 import time
 import uuid
-from typing import Optional
+from typing import Optional, List
 
 from .db import get_db
-from .models import GameSessionInDB
+from .models import GameSessionInDB, GameSessionPublicResponse
 
+
+async def list_sessions(user_id: Optional[str] = None, limit: int = 50) -> List[dict]:
+    db = get_db()
+
+    filter_query = {}
+    if user_id:
+        filter_query["user_id"] = user_id
+
+    cursor = db.sessions.find(filter_query).sort("finished_at", -1).limit(limit)
+
+    results = []
+    async for doc in cursor:
+        session_data = {
+            "id": doc["session_id"],
+            "user_id": doc["user_id"],
+            "scores": doc.get("scores", 0),
+            "started_at": doc["started_at"],
+            "finished_at": doc.get("finished_at")
+        }
+        results.append(GameSessionPublicResponse(**session_data))
+    return results
 
 async def start_game(user_id: str) -> str:
     """
