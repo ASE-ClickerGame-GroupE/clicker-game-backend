@@ -98,4 +98,6 @@ async def test_finish_calls_crud_and_returns_finishresponse():
       
         assert response.session_id == "sessionXYZ"
 
-        mock_finish.assert_awaited_once_with("sessionXYZ")
+        mock_finish.assert_awaited_once_with(session_id="sessionXYZ",
+                                             final_score=100,
+                                             finished_at=20.0)
