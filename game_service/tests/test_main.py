@@ -20,38 +20,36 @@ async def test_start_game_calls_crud_and_returns_session_id():
     fake_session_id = "session123"
 
     with patch(
-        "game_service.app.main.crud.start_game",
-        new=AsyncMock(return_value=fake_session_id),
+            "game_service.app.main.crud.start_game",
+            new=AsyncMock(return_value=fake_session_id),
     ) as mock_start:
-     
-        body = StartGameRequest(user_id="user123")
 
-        response = await start_game(body)
+        # In main.py, start_game takes `user_id` from dependency.
+        # To unit test the endpoint function directly, we pass user_id as an argument if it's a dependency.
+        response = await start_game(user_id="user123")
 
         assert isinstance(response, StartGameResponse)
         assert response.session_id == fake_session_id
-       
+
         mock_start.assert_awaited_once_with("user123")
 
 
 @pytest.mark.asyncio
 async def test_click_calls_crud_and_returns_clickresponse():
-   
     fake_session = SimpleNamespace(sessions_id="s1", scores=42)
 
     with patch(
-        "game_service.app.main.crud.update_click",
-        new=AsyncMock(return_value=fake_session),
+            "game_service.app.main.crud.update_click",
+            new=AsyncMock(return_value=fake_session),
     ) as mock_update:
-        
-        body = ClickEvent(session_id="s1", reaction_ms=150)
+        body = ClickEvent(session_id="s1", reaction_ms=150, hit=True)
 
         response = await click(body)
 
         assert isinstance(response, ClickResponse)
         assert response.scores == 42
-        # ✅ your click() calls update_click(session_id, reaction_ms)
-        mock_update.assert_awaited_once_with("s1", 150)
+
+        mock_update.assert_awaited_once_with("s1", True, 150)
 
 
 @pytest.mark.asyncio
@@ -60,7 +58,7 @@ async def test_click_raises_404_on_invalid_session():
         "game_service.app.main.crud.update_click",
         new=AsyncMock(return_value=None),
     ):
-        body = ClickEvent(session_id="unknown", reaction_ms=200)
+        body = ClickEvent(session_id="unknown", reaction_ms=200, hit=True)
 
         with pytest.raises(HTTPException) as exc:
             await click(body)

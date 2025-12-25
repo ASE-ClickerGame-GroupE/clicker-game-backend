@@ -46,13 +46,12 @@ async def start_game(user_id: str = Depends(get_current_user_id)):
 
 @app.post("/game/click", response_model=ClickResponse)
 async def click(body: ClickEvent):
-    session = await crud.update_click(body.session_id, body.reaction_ms)
+    session = await crud.update_click(body.session_id, body.hit, body.reaction_ms)
     if not session:
         raise HTTPException(status_code=404, detail="Invalid session_id")
 
     return ClickResponse(
         scores=session.scores
-       
     )
 
 

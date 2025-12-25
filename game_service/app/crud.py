@@ -70,19 +70,17 @@ async def update_click(
     if not session:
         return None
 
-    score = session.scores
+    current_score = session.scores
   
 
     if hit:
-        hits += 1
-        score += max(1, 50 - reaction_ms // 20)
+        current_score += max(1, 50 - reaction_ms // 20)
     else:
-        misses += 1
-        score -= 2
+        current_score -= 2
 
     await db.sessions.update_one(
         {"session_id": session_id},
-        {"$set": {"scores": score}},
+        {"$set": {"scores": current_score}},
     )
 
     return await get_session(session_id)
