@@ -2,10 +2,6 @@ from pydantic import BaseModel
 from typing import Optional
 
 
-class StartGameRequest(BaseModel):
-    difficulty: str
-
-
 class StartGameResponse(BaseModel):
     session_id: str
 
@@ -38,7 +34,6 @@ class FinishGameResponse(BaseModel):
 class GameSessionInDB(BaseModel):
     session_id: str
     user_id: str
-    difficulty: str
     score: int
     hits: int
     misses: int

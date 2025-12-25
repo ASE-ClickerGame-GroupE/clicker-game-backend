@@ -6,7 +6,7 @@ from .db import get_db
 from .models import GameSessionInDB
 
 
-async def start_game(user_id: str, difficulty: str) -> str:
+async def start_game(user_id: str) -> str:
     """
     Create a new game session document in MongoDB.
     """
@@ -16,7 +16,6 @@ async def start_game(user_id: str, difficulty: str) -> str:
     doc = {
         "session_id": session_id,
         "user_id": user_id,
-        "difficulty": difficulty,
         "score": 0,
         "hits": 0,
         "misses": 0,
