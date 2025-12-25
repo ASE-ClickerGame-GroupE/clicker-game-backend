@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from game_service.app.auth_deps import get_current_user_id
 
 from .models import (
     StartGameRequest,
@@ -28,8 +29,8 @@ async def health_check():
 
 
 @app.post("/game/start", response_model=StartGameResponse)
-async def start_game(body: StartGameRequest):
-    session_id = await crud.start_game(body.user_id, body.difficulty)
+async def start_game(body: StartGameRequest, user_id: str = Depends(get_current_user_id)):
+    session_id = await crud.start_game(user_id, body.difficulty)
     return StartGameResponse(session_id=session_id)
 
 
@@ -47,7 +48,7 @@ async def click(body: ClickEvent):
 
 
 @app.post("/game/finish", response_model=FinishGameResponse)
-async def finish(body: FinishGameRequest):
+async def finish(body: FinishGameRequest, user_id: str = Depends(get_current_user_id)):
     session = await crud.finish_game(body.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Invalid session_id")

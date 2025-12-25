@@ -6,7 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from user_service.app.auth.routes import router as auth_router
 from user_service.app.models import UserCreate, UserInDB
 from user_service.app.db import get_db
-from user_service.app.crud import create_user, get_user, list_users
+from user_service.app import crud
 
 app = FastAPI(title="Aim Clicker User Service")
 
@@ -29,7 +29,7 @@ async def health():
 
 # Create user (direct DB access without auth route)
 @app.post("/users", response_model=UserInDB)
-async def create_user(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def create_user_endpoint(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
     return await crud.create_user(db, user)
 
 

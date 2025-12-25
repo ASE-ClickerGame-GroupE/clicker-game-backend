@@ -6,11 +6,12 @@ from jose import jwt, JWTError
 from user_service.app.models import UserCreate, UserInDB, Token
 from user_service.app.crud import create_user, authenticate_user
 from user_service.app.db import get_db
-from user_service.auth.auth import create_access_token
+from user_service.app.auth.auth import create_access_token
+from user_service.app.auth.auth import SECRET_KEY, ALGORITHM
 
 router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 # Signup endpoint
 
@@ -53,7 +54,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncIOMot
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncIOMotorDatabase = Depends(get_db)):
     try:
-        payload = jwt.decode(token, "your-secret-key", algorithms=["HS256"])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         loging: str = payload.get("sub")
         if loging is None:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -72,6 +73,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncIOMotor
 @router.get("/me", response_model=UserInDB)
 async def read_me(current_user: dict = Depends(get_current_user)):
     """
-    Returns the currently logged in user
+    Returns the currently logged-in user
     """
     return current_user

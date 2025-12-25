@@ -1,7 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
-from sqlalchemy import Column, String, Integer
-from sqlalchemy.ext.declarative import declarative_base
+from datetime import datetime
 
 # Input schema for creating a user
 class UserCreate(BaseModel):
@@ -14,6 +13,7 @@ class UserInDB(BaseModel):
     user_id: str
     loging: str
     email: Optional[EmailStr] = None
+    created_at: float
 
 
 # Schema for login response token

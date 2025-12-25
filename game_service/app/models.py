@@ -3,7 +3,6 @@ from typing import Optional
 
 
 class StartGameRequest(BaseModel):
-    user_id: str
     difficulty: str
 
 

@@ -2,9 +2,9 @@ import uuid
 from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from user_service.app.db import get_db
 from user_service.app.models import UserCreate, UserInDB
 from user_service.app.auth.auth import hash_password, verify_password
+import time
 
 
 # Create a new user
@@ -17,6 +17,7 @@ async def create_user(db: AsyncIOMotorDatabase, data: UserCreate) -> UserInDB:
         "loging": data.loging,      # match frontend
         "password": hashed_pwd,     # store hashed password
         "email": data.email,
+        "created_at": time.time(),
     }
 
     await db.users.insert_one(doc)
