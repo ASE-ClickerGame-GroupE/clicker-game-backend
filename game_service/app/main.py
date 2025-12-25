@@ -1,4 +1,8 @@
 from fastapi import FastAPI, HTTPException, Depends
+import time
+from typing import Optional, List
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from game_service.app.auth_deps import get_current_user_id
 import time
@@ -10,6 +14,7 @@ from .models import (
     ClickResponse,
     FinishGameRequest,
     FinishGameResponse,
+    GameSessionPublicResponse
 )
 from . import crud
 
@@ -17,7 +22,7 @@ app = FastAPI(title="Aim Clicker Game Service")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # later: restrict to your frontend origin
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,6 +33,10 @@ app.add_middleware(
 async def health_check():
     return {"status": "ok"}
 
+@app.get("/game", response_model=List[GameSessionPublicResponse])
+async def get_games(user_id: Optional[str] = None):
+    return await crud.list_sessions(user_id=user_id)
+
 
 @app.post("/game/start", response_model=StartGameResponse)
 async def start_game(user_id: str = Depends(get_current_user_id)):
@@ -37,30 +46,31 @@ async def start_game(user_id: str = Depends(get_current_user_id)):
 
 @app.post("/game/click", response_model=ClickResponse)
 async def click(body: ClickEvent):
-    session = await crud.update_click(body.session_id, body.hit, body.reaction_ms)
+    session = await crud.update_click(body.session_id, body.reaction_ms)
     if not session:
         raise HTTPException(status_code=404, detail="Invalid session_id")
 
     return ClickResponse(
-        score=session.score,
-        hits=session.hits,
-        misses=session.misses,
+        scores=session.scores
+       
     )
 
 
 @app.post("/game/finish", response_model=FinishGameResponse)
 async def finish(body: FinishGameRequest, user_id: str = Depends(get_current_user_id)):
-    session = await crud.finish_game(body.session_id)
+    session = await crud.finish_game(
+        session_id=body.session_id,
+        final_score=body.scores,
+        finished_at=body.finished_at
+    )
+
     if not session:
         raise HTTPException(status_code=404, detail="Invalid session_id")
 
+    end_time = session.finished_at if session.finished_at else time.time()
     duration_s = (session.finished_at or session.started_at) - session.started_at
 
     return FinishGameResponse(
-        final_score=session.score,
-        hits=session.hits,
-        misses=session.misses,
-        duration_s=duration_s,
-        difficulty=session.difficulty,
-        user_id=session.user_id,
+        session_id=session.session_id
+        
     )

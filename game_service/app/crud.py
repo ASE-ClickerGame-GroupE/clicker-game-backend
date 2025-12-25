@@ -1,10 +1,31 @@
 import time
 import uuid
-from typing import Optional
+from typing import Optional, List
 
 from .db import get_db
-from .models import GameSessionInDB
+from .models import GameSessionInDB, GameSessionPublicResponse
 
+
+async def list_sessions(user_id: Optional[str] = None, limit: int = 50) -> List[dict]:
+    db = get_db()
+
+    filter_query = {}
+    if user_id:
+        filter_query["user_id"] = user_id
+
+    cursor = db.sessions.find(filter_query).sort("finished_at", -1).limit(limit)
+
+    results = []
+    async for doc in cursor:
+        session_data = {
+            "id": doc["session_id"],
+            "user_id": doc["user_id"],
+            "scores": doc.get("scores", 0),
+            "started_at": doc["started_at"],
+            "finished_at": doc.get("finished_at")
+        }
+        results.append(GameSessionPublicResponse(**session_data))
+    return results
 
 async def start_game(user_id: str) -> str:
     """
@@ -15,10 +36,8 @@ async def start_game(user_id: str) -> str:
 
     doc = {
         "session_id": session_id,
-        "user_id": user_id,
-        "score": 0,
-        "hits": 0,
-        "misses": 0,
+        "user_id": user_id, 
+        "scores": 0,
         "started_at": time.time(),
         "finished_at": None,
     }
@@ -51,9 +70,8 @@ async def update_click(
     if not session:
         return None
 
-    score = session.score
-    hits = session.hits
-    misses = session.misses
+    score = session.scores
+  
 
     if hit:
         hits += 1
@@ -64,13 +82,17 @@ async def update_click(
 
     await db.sessions.update_one(
         {"session_id": session_id},
-        {"$set": {"score": score, "hits": hits, "misses": misses}},
+        {"$set": {"scores": score}},
     )
 
     return await get_session(session_id)
 
 
-async def finish_game(session_id: str) -> Optional[GameSessionInDB]:
+async def finish_game(
+        session_id: str,
+        final_score: Optional[int] = None,
+        finished_at: Optional[float] = None,
+        ) -> Optional[GameSessionInDB]:
     """
     Mark game as finished and set finished_at timestamp.
     """
@@ -79,11 +101,17 @@ async def finish_game(session_id: str) -> Optional[GameSessionInDB]:
     if not session:
         return None
 
-    finished_at = time.time()
+    if finished_at is None:
+        finished_at = time.time()
+
+    update_data = {"finished_at": finished_at}
+
+    if final_score is not None:
+        update_data["scores"] = final_score
 
     await db.sessions.update_one(
         {"session_id": session_id},
-        {"$set": {"finished_at": finished_at}},
+        {"$set": update_data},
     )
 
     return await get_session(session_id)
