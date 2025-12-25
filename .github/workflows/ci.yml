@@ -1,0 +1,115 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main", "master", "development" ]
+  pull_request:
+    branches: [ "main", "master", "development" ]
+
+jobs:
+  # ==========================================
+  # JOB 1: GAME SERVICE
+  # ==========================================
+  test-game-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # 1. Check if files in game_service changed
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            game:
+              - 'game_service/**'
+
+      # 2. Setup Python
+      - name: Set up Python 3.13
+        if: steps.filter.outputs.game == 'true'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      # 3. Install Dependencies
+      - name: Install Dependencies
+        if: steps.filter.outputs.game == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r game_service/requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      # 4. Run Tests
+      # We add game_service to PYTHONPATH so imports work exactly like they do locally
+      - name: Run Pytest
+        if: steps.filter.outputs.game == 'true'
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/game_service
+          pytest game_service
+
+  # ==========================================
+  # JOB 2: LEADERBOARD SERVICE
+  # ==========================================
+  test-leaderboard-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            leaderboard:
+              - 'leaderboard_service/**'
+
+      - name: Set up Python 3.13
+        if: steps.filter.outputs.leaderboard == 'true'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.leaderboard == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r leaderboard_service/requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      - name: Run Pytest
+        if: steps.filter.outputs.leaderboard == 'true'
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/leaderboard_service
+          pytest leaderboard_service
+
+  # ==========================================
+  # JOB 3: USER SERVICE
+  # ==========================================
+  test-user-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            user:
+              - 'user_service/**'
+
+      - name: Set up Python 3.13
+        if: steps.filter.outputs.user == 'true'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.user == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r user_service/requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      - name: Run Pytest
+        if: steps.filter.outputs.user == 'true'
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/user_service
+          pytest user_service
