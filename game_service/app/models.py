@@ -21,6 +21,7 @@ class StartGameResponse(BaseModel):
 class ClickEvent(BaseModel):
     session_id: str
     reaction_ms: int
+    hit: bool
 
 
 class ClickResponse(BaseModel):
