@@ -57,35 +57,6 @@ async def get_session(session_id: str) -> Optional[GameSessionInDB]:
     return GameSessionInDB(**doc)
 
 
-async def update_click(
-    session_id: str,
-    hit: bool,
-    reaction_ms: int,
-) -> Optional[GameSessionInDB]:
-    """
-    Update score/hits/misses for a click event.
-    """
-    db = get_db()
-    session = await get_session(session_id)
-    if not session:
-        return None
-
-    current_score = session.scores
-  
-
-    if hit:
-        current_score += max(1, 50 - reaction_ms // 20)
-    else:
-        current_score -= 2
-
-    await db.sessions.update_one(
-        {"session_id": session_id},
-        {"$set": {"scores": current_score}},
-    )
-
-    return await get_session(session_id)
-
-
 async def finish_game(
         session_id: str,
         final_score: Optional[int] = None,
