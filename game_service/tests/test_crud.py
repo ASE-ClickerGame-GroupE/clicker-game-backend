@@ -1,10 +1,61 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
-from game_service.app import crud
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
+from fastapi import HTTPException
+
+from game_service.app.main import start_game, finish
+from game_service.app.models import (
+    StartGameRequest,
+    FinishGameRequest,
+    StartGameResponse,
+    FinishGameResponse,
+)
 
 
-@pytest.fixture
-def mock_db():
-    mock_database = MagicMock()
-    mock_database.sessions = AsyncMock()
-    return mock_database
+@pytest.mark.asyncio
+async def test_start_game_calls_crud_and_returns_session_id():
+    fake_session_id = "session123"
+
+    with patch(
+            "game_service.app.main.crud.start_game",
+            new=AsyncMock(return_value=fake_session_id),
+    ) as mock_start:
+        response = await start_game(user_id="user123")
+
+        assert isinstance(response, StartGameResponse)
+        assert response.session_id == fake_session_id
+
+        mock_start.assert_awaited_once_with("user123")
+
+
+@pytest.mark.asyncio
+async def test_finish_calls_crud_and_returns_finishresponse():
+    fake_session = SimpleNamespace(
+        session_id="sessionXYZ",
+        scores={"user123": 100},
+        started_at=0.0,
+        finished_at=20.0,
+        user_id=["user123"],
+    )
+
+    with patch(
+            "game_service.app.main.crud.finish_game",
+            new=AsyncMock(return_value=fake_session),
+    ) as mock_finish:
+        body = FinishGameRequest(
+            session_id="sessionXYZ",
+            scores={"user123": 100},
+            finished_at=20.0,
+        )
+
+        response = await finish(body, user_id="user123")
+
+        assert isinstance(response, FinishGameResponse)
+        assert response.session_id == "sessionXYZ"
+
+        mock_finish.assert_awaited_once_with(
+            session_id="sessionXYZ",
+            final_scores={"user123": 100},
+            finished_at=20.0
+        )

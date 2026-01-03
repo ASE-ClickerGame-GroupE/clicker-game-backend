@@ -21,9 +21,6 @@ async def test_start_game_calls_crud_and_returns_session_id():
             "game_service.app.main.crud.start_game",
             new=AsyncMock(return_value=fake_session_id),
     ) as mock_start:
-
-        # In main.py, start_game takes `user_id` from dependency.
-        # To unit test the endpoint function directly, we pass user_id as an argument if it's a dependency.
         response = await start_game(user_id="user123")
 
         assert isinstance(response, StartGameResponse)
@@ -34,33 +31,31 @@ async def test_start_game_calls_crud_and_returns_session_id():
 
 @pytest.mark.asyncio
 async def test_finish_calls_crud_and_returns_finishresponse():
-   
     fake_session = SimpleNamespace(
         session_id="sessionXYZ",
-        scores=100,
+        scores={"user123": 100},
         started_at=0.0,
         finished_at=20.0,
-        user_id="user123",
+        user_id=["user123"],
     )
 
     with patch(
-        "game_service.app.main.crud.finish_game",
-        new=AsyncMock(return_value=fake_session),
+            "game_service.app.main.crud.finish_game",
+            new=AsyncMock(return_value=fake_session),
     ) as mock_finish:
-  
         body = FinishGameRequest(
             session_id="sessionXYZ",
-            scores=100,
+            scores={"user123": 100},
             finished_at=20.0,
         )
 
-        response = await finish(body)
+        response = await finish(body, user_id="user123")
 
         assert isinstance(response, FinishGameResponse)
-      
-      
         assert response.session_id == "sessionXYZ"
 
-        mock_finish.assert_awaited_once_with(session_id="sessionXYZ",
-                                             final_score=100,
-                                             finished_at=20.0)
+        mock_finish.assert_awaited_once_with(
+            session_id="sessionXYZ",
+            final_scores={"user123": 100},
+            finished_at=20.0
+        )

@@ -42,17 +42,13 @@ async def start_game(user_id: str = Depends(get_current_user_id)):
 async def finish(body: FinishGameRequest, user_id: str = Depends(get_current_user_id)):
     session = await crud.finish_game(
         session_id=body.session_id,
-        final_score=body.scores,
+        final_scores=body.scores,
         finished_at=body.finished_at
     )
 
     if not session:
         raise HTTPException(status_code=404, detail="Invalid session_id")
 
-    end_time = session.finished_at if session.finished_at else time.time()
-    duration_s = (session.finished_at or session.started_at) - session.started_at
-
     return FinishGameResponse(
         session_id=session.session_id
-        
     )
