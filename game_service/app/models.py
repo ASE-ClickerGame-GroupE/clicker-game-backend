@@ -18,16 +18,6 @@ class StartGameResponse(BaseModel):
     session_id: str
 
 
-class ClickEvent(BaseModel):
-    session_id: str
-    reaction_ms: int
-    hit: bool
-
-
-class ClickResponse(BaseModel):
-    scores: int
-  
-
 class FinishGameRequest(BaseModel):
     session_id: str
     scores: int 

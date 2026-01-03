@@ -4,13 +4,11 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi import HTTPException
 
-from game_service.app.main import start_game, click, finish
+from game_service.app.main import start_game, finish
 from game_service.app.models import (
     StartGameRequest,
-    ClickEvent,
     FinishGameRequest,
     StartGameResponse,
-    ClickResponse,
     FinishGameResponse,
 )
 
@@ -32,39 +30,6 @@ async def test_start_game_calls_crud_and_returns_session_id():
         assert response.session_id == fake_session_id
 
         mock_start.assert_awaited_once_with("user123")
-
-
-@pytest.mark.asyncio
-async def test_click_calls_crud_and_returns_clickresponse():
-    fake_session = SimpleNamespace(sessions_id="s1", scores=42)
-
-    with patch(
-            "game_service.app.main.crud.update_click",
-            new=AsyncMock(return_value=fake_session),
-    ) as mock_update:
-        body = ClickEvent(session_id="s1", reaction_ms=150, hit=True)
-
-        response = await click(body)
-
-        assert isinstance(response, ClickResponse)
-        assert response.scores == 42
-
-        mock_update.assert_awaited_once_with("s1", True, 150)
-
-
-@pytest.mark.asyncio
-async def test_click_raises_404_on_invalid_session():
-    with patch(
-        "game_service.app.main.crud.update_click",
-        new=AsyncMock(return_value=None),
-    ):
-        body = ClickEvent(session_id="unknown", reaction_ms=200, hit=True)
-
-        with pytest.raises(HTTPException) as exc:
-            await click(body)
-
-        assert exc.value.status_code == 404
-        assert exc.value.detail == "Invalid session_id"
 
 
 @pytest.mark.asyncio
