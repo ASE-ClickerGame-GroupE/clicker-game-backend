@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from game_service.app.auth_deps import get_current_user_id
+from game_service.app.auth_deps import get_current_user, TokenData
 import time
 from typing import Optional, List
 
@@ -28,18 +28,18 @@ async def health_check():
     return {"status": "ok"}
 
 @app.get("/game", response_model=List[GameSessionPublicResponse])
-async def get_games(user_id: str = Depends(get_current_user_id)):
-    return await crud.list_sessions(user_id=user_id)
+async def get_games(current_user: TokenData = Depends(get_current_user)):
+    return await crud.list_sessions(user_id=current_user.user_id)
 
 
 @app.post("/game/start", response_model=StartGameResponse)
-async def start_game(user_id: str = Depends(get_current_user_id)):
-    session_id = await crud.start_game(user_id)
+async def start_game(current_user: TokenData = Depends(get_current_user)):
+    session_id = await crud.start_game(current_user.user_id)
     return StartGameResponse(session_id=session_id)
 
 
 @app.post("/game/finish", response_model=FinishGameResponse)
-async def finish(body: FinishGameRequest, user_id: str = Depends(get_current_user_id)):
+async def finish(body: FinishGameRequest, current_user: TokenData = Depends(get_current_user)):
     session = await crud.finish_game(
         session_id=body.session_id,
         final_scores=body.scores,

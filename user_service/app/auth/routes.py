@@ -47,7 +47,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncIOMot
         )
 
     # Generate JWT token
-    access_token = create_access_token(data={"sub": user["loging"]})
+    access_token = create_access_token(data={"sub": user["loging"], "uuid": user["user_id"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Example protected endpoint
