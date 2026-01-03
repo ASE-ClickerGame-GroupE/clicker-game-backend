@@ -1,36 +1,78 @@
-# leaderboard_service/app/crud.py
-from typing import List
+from typing import List, Optional
 from .db import get_db
 from .models import LeaderboardEntry
+from pymongo import DESCENDING
 
 
-async def get_leaderboard(limit: int = 10) -> List[LeaderboardEntry]:
+async def get_leaderboard(
+    group_by: str = "totalScores",
+    me_only: bool = False,
+    current_user_id: Optional[str] = None,
+    limit: int = 10
+) -> List[LeaderboardEntry]:
     db = get_db()
 
-    # sessions completed (finished_at not null), sorted by score desc
-    cursor = (
-        db.sessions.find({"finished_at": {"$ne": None}})
-        .sort("score", -1)
-        .limit(limit)
-    )
+    # Determine the score calculation
+    if group_by == "totalScores":
+        score_field = {"totalScores": {"$sum": "$user_score"}}
+    elif group_by == "bestScore":
+        score_field = {"bestScore": {"$max": "$user_score"}}
+    else:
+        raise ValueError("Invalid group_by value")
 
-    results: List[LeaderboardEntry] = []
-    async for doc in cursor:
-        doc.pop("_id", None)
-        duration_s = None
-        if doc.get("started_at") is not None and doc.get("finished_at") is not None:
-            duration_s = doc["finished_at"] - doc["started_at"]
+    pipeline = [
+        # 1️⃣ Only finished sessions
+        {"$match": {"finished_at": {"$ne": None}}},
 
-        results.append(
-            LeaderboardEntry(
-                session_id=doc["session_id"],
-                user_id=doc["user_id"],
-                difficulty=doc["difficulty"],
-                score=doc["score"],
-                hits=doc["hits"],
-                misses=doc["misses"],
-                duration_s=duration_s,
-            )
-        )
+        # 2️⃣ Convert user_id array and scores dict into one document per user
+        {"$project": {
+            "user_id": 1,
+            "scores": 1,
+            "finished_at": 1
+        }},
+        {"$unwind": "$user_id"},  # create one doc per user in session
+        {"$set": {"user_score": {"$getField": {"field": "$user_id", "input": "$scores"}}}},
 
-    return results
+        # 3️⃣ Group by user
+        {"$group": {
+            "_id": "$user_id",
+            "userName": {"$first": "$user_id"},  # use ID as username
+            "totalGames": {"$sum": 1},
+            **score_field
+        }},
+
+        # 4️⃣ Sort by score descending
+        {"$sort": {list(score_field.keys())[0]: -1}},
+
+        # 5️⃣ Rank users
+        {"$setWindowFields": {
+            "sortBy": {list(score_field.keys())[0]: -1},
+            "output": {"place": {"$rank": {}}}
+        }},
+    ]
+
+    # 6️⃣ Apply limit for public leaderboard
+    if limit and not me_only:
+        pipeline.append({"$limit": limit})
+
+    # 7️⃣ Filter for current user if me_only
+    if me_only:
+        if not current_user_id:
+            raise ValueError("current_user_id must be provided when me_only is True")
+        pipeline.append({"$match": {"_id": current_user_id}})
+
+    # 8️⃣ Final projection
+    pipeline.append({
+        "$project": {
+            "id": "$_id",
+            "userName": 1,
+            "totalGames": 1,
+            group_by: 1,
+            "place": 1,
+            "_id": 0
+        }
+    })
+
+    cursor = db.sessions.aggregate(pipeline)
+    data = await cursor.to_list(length=limit if not me_only else 1)
+    return data
