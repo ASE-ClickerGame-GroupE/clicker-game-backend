@@ -34,7 +34,7 @@ async def health_check():
     return {"status": "ok"}
 
 @app.get("/game", response_model=List[GameSessionPublicResponse])
-async def get_games(user_id: Optional[str] = None):
+async def get_games(user_id: str = Depends(get_current_user_id)):
     return await crud.list_sessions(user_id=user_id)
 
 
