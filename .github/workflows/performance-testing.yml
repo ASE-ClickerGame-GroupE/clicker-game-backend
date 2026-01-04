@@ -1,0 +1,56 @@
+name: Performance Testing
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ feature/performance-testing ]
+
+jobs:
+  performance:
+    runs-on: ubuntu-latest
+
+    env:
+      SECRET_KEY: my_local_dev_secret
+      ALGORITHM: HS256
+      TEST_PASSWORD: secret123
+      USER_SVC: http://127.0.0.1:8000
+      GAME_SVC: http://127.0.0.1:8001
+      CREATE_USER_ON_START: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install locust
+
+      - name: Start services
+        run: |
+          uvicorn user_service.app.main:app --host 127.0.0.1 --port 8000 &
+          uvicorn game_service.app.main:app --host 127.0.0.1 --port 8001 &
+          sleep 8
+
+      - name: Run Locust (headless)
+        run: |
+          locust \
+            -f perf/locustfile.py \
+            --headless \
+            -u 50 \
+            -r 10 \
+            -t 2m \
+            --csv=locust_stats \
+            --host=http://127.0.0.1
+
+      - name: Check thresholds
+        run: |
+          python perf/check_performance.py
+
