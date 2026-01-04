@@ -32,12 +32,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install locust
+          pip install "python-jose[cryptography]"
 
       - name: Start services
         run: |
           uvicorn user_service.app.main:app --host 127.0.0.1 --port 8000 &
           uvicorn game_service.app.main:app --host 127.0.0.1 --port 8001 &
-          sleep 8
+          for i in {1..30}; do
+            curl -sf http://127.0.0.1:8000/health && curl -sf http://127.0.0.1:8001/health && break
+            sleep 1
+          done
 
       - name: Run Locust (headless)
         run: |

@@ -27,7 +27,7 @@ class ClickerMicroservicesUser(HttpUser):
         if CREATE_USER_ON_START:
             unique = f"{TEST_LOGIN}_{int(time.time())}_{random.randint(1000,9999)}"
             signup_payload = {
-                "loging": unique,
+                "login": unique,
                 "password": TEST_PASSWORD,
                 "email": f"{unique}@example.com",
             }
@@ -109,9 +109,9 @@ class ClickerMicroservicesUser(HttpUser):
             name="game/game/list",
         )
 
-    @task(1)
-    def leaderboard_health(self):
-        if not ENABLE_LEADERBOARD:
-            return
+    #@task(1)
+    #def leaderboard_health(self):
+     #   if not ENABLE_LEADERBOARD:
+      #      return
 
-        self.client.get(f"{LEADER_SVC}/health", name="leader/health")
+       # self.client.get(f"{LEADER_SVC}/health", name="leader/health")
