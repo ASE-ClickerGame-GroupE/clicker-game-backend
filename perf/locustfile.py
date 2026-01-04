@@ -5,7 +5,7 @@ from locust import HttpUser, task, between
 
 USER_SVC = os.getenv("USER_SVC", "http://127.0.0.1:8000")
 GAME_SVC = os.getenv("GAME_SVC", "http://127.0.0.1:8001")
-LEADER_SVC = os.getenv("LEADER_SVC", "http://127.0.0.1:8002")
+#LEADER_SVC = os.getenv("LEADER_SVC", "http://127.0.0.1:8002")
 
 TEST_LOGIN = os.getenv("TEST_LOGIN", "testuser")
 TEST_PASSWORD = os.getenv("TEST_PASSWORD", "secret123")
