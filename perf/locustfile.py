@@ -10,6 +10,7 @@ LEADER_SVC = os.getenv("LEADER_SVC", "http://127.0.0.1:8002")
 TEST_LOGIN = os.getenv("TEST_LOGIN", "testuser")
 TEST_PASSWORD = os.getenv("TEST_PASSWORD", "secret123")
 CREATE_USER_ON_START = os.getenv("CREATE_USER_ON_START", "false").lower() == "true"
+ENABLE_LEADERBOARD = os.getenv("ENABLE_LEADERBOARD", "false").lower() == "true"
 
 
 class ClickerMicroservicesUser(HttpUser):
@@ -17,6 +18,9 @@ class ClickerMicroservicesUser(HttpUser):
     wait_time = between(0.2, 1.0)
 
     def on_start(self):
+        self.auth_headers = {}
+        self.session_id = None
+
         self.client.get(f"{USER_SVC}/health", name="user/health")
         self.client.get(f"{GAME_SVC}/health", name="game/health")
 
@@ -36,7 +40,6 @@ class ClickerMicroservicesUser(HttpUser):
             ) as r:
                 if r.status_code not in (200, 201):
                     r.failure(f"Signup failed: {r.status_code} {r.text}")
-                    self.auth_headers = {}
                     return
 
             login_value = unique
@@ -52,20 +55,20 @@ class ClickerMicroservicesUser(HttpUser):
         ) as resp:
             if resp.status_code != 200:
                 resp.failure(f"Login failed: {resp.status_code} {resp.text}")
-                self.auth_headers = {}
                 return
 
             token = resp.json().get("access_token")
             if not token:
                 resp.failure("No access_token in login response")
-                self.auth_headers = {}
                 return
 
         self.auth_headers = {"Authorization": f"Bearer {token}"}
-        self.session_id = None
 
     @task(5)
     def start_and_finish(self):
+        if not self.auth_headers:
+            return
+
         with self.client.post(
             f"{GAME_SVC}/game/start",
             headers=self.auth_headers,
@@ -76,8 +79,8 @@ class ClickerMicroservicesUser(HttpUser):
                 resp.failure(f"Start game failed: {resp.status_code} {resp.text}")
                 return
 
-            self.session_id = resp.json().get("session_id")
-            if not self.session_id:
+            session_id = resp.json().get("session_id")
+            if not session_id:
                 resp.failure("No session_id returned")
                 return
 
@@ -85,7 +88,7 @@ class ClickerMicroservicesUser(HttpUser):
             f"{GAME_SVC}/game/finish",
             headers=self.auth_headers,
             json={
-                "session_id": self.session_id,
+                "session_id": session_id,
                 "scores": {},
                 "finished_at": time.time(),
             },
@@ -97,6 +100,9 @@ class ClickerMicroservicesUser(HttpUser):
 
     @task(2)
     def list_games(self):
+        if not self.auth_headers:
+            return
+
         self.client.get(
             f"{GAME_SVC}/game",
             headers=self.auth_headers,
@@ -105,4 +111,7 @@ class ClickerMicroservicesUser(HttpUser):
 
     @task(1)
     def leaderboard_health(self):
+        if not ENABLE_LEADERBOARD:
+            return
+
         self.client.get(f"{LEADER_SVC}/health", name="leader/health")
