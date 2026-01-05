@@ -32,7 +32,6 @@ jobs:
       TEST_PASSWORD: secret123
       CREATE_USER_ON_START: "false"
 
-   
       MONGODB_URI: mongodb://127.0.0.1:27017
       MONGODB_DB: ClickerDatabase
 
@@ -50,27 +49,35 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install locust
+          pip install python-multipart
+          pip install "passlib[bcrypt]"
+          pip install "python-jose[cryptography]"
 
       - name: Start services
         run: |
+          export SECRET_KEY="${SECRET_KEY}"
+          export ALGORITHM="${ALGORITHM}"
+          export MONGODB_URI="${MONGODB_URI}"
+          export MONGODB_DB="${MONGODB_DB}"
+
           uvicorn user_service.app.main:app --host 127.0.0.1 --port 8000 > user.log 2>&1 &
           uvicorn game_service.app.main:app --host 127.0.0.1 --port 8001 > game.log 2>&1 &
 
-          for i in {1..60}; do
+          for i in {1..90}; do
             curl -sf http://127.0.0.1:8000/health && curl -sf http://127.0.0.1:8001/health && break
             sleep 1
           done
 
-      - name: Pre-create perf user (one time)
+      - name: Pre-create perf user
         run: |
           curl -s -o signup_out.txt -w "\nHTTP:%{http_code}\n" \
             -X POST http://127.0.0.1:8000/auth/signup \
             -H "Content-Type: application/json" \
-            -d "{\"login\":\"${TEST_LOGIN}\",\"password\":\"${TEST_PASSWORD}\",\"email\":\"${TEST_LOGIN}@example.com\"}"
-          echo "=== SIGNUP RESPONSE ==="
+            -d "{\"loging\":\"${TEST_LOGIN}\",\"password\":\"${TEST_PASSWORD}\",\"email\":\"${TEST_LOGIN}@example.com\"}"
+
           cat signup_out.txt
 
-      - name: Run Locust (headless)
+      - name: Run Locust
         run: |
           locust \
             -f perf/locustfile.py \
@@ -81,12 +88,12 @@ jobs:
             --csv=locust_stats \
             --host=http://127.0.0.1
 
-      - name: Dump service logs
+      - name: Dump logs
         if: always()
         run: |
-          echo "=== USER LOG (tail 400) ==="
+          echo "=== USER LOG ==="
           tail -n 400 user.log || true
-          echo "=== GAME LOG (tail 400) ==="
+          echo "=== GAME LOG ==="
           tail -n 400 game.log || true
 
       - name: Check thresholds
