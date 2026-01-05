@@ -10,6 +10,17 @@ jobs:
   performance:
     runs-on: ubuntu-latest
 
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
     env:
       SECRET_KEY: my_local_dev_secret
       ALGORITHM: HS256
@@ -19,13 +30,11 @@ jobs:
 
       TEST_LOGIN: perfuser
       TEST_PASSWORD: secret123
-
-      
       CREATE_USER_ON_START: "false"
 
    
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
-      MONGODB_DB: ${{ secrets.MONGODB_DB }}
+      MONGODB_URI: mongodb://127.0.0.1:27017
+      MONGODB_DB: ClickerDatabase
 
     steps:
       - name: Checkout
@@ -44,29 +53,20 @@ jobs:
 
       - name: Start services
         run: |
-          # start in background + log to files
           uvicorn user_service.app.main:app --host 127.0.0.1 --port 8000 > user.log 2>&1 &
           uvicorn game_service.app.main:app --host 127.0.0.1 --port 8001 > game.log 2>&1 &
 
-          # wait for health
-          for i in {1..40}; do
+          for i in {1..60}; do
             curl -sf http://127.0.0.1:8000/health && curl -sf http://127.0.0.1:8001/health && break
             sleep 1
           done
 
-          echo "=== USER LOG (tail) ==="
-          tail -n 200 user.log || true
-          echo "=== GAME LOG (tail) ==="
-          tail -n 200 game.log || true
-
       - name: Pre-create perf user (one time)
         run: |
-          # if signup expects different field name (login vs loging), this will show instantly
           curl -s -o signup_out.txt -w "\nHTTP:%{http_code}\n" \
             -X POST http://127.0.0.1:8000/auth/signup \
             -H "Content-Type: application/json" \
             -d "{\"login\":\"${TEST_LOGIN}\",\"password\":\"${TEST_PASSWORD}\",\"email\":\"${TEST_LOGIN}@example.com\"}"
-
           echo "=== SIGNUP RESPONSE ==="
           cat signup_out.txt
 
