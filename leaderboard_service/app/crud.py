@@ -36,32 +36,40 @@ async def get_leaderboard(
         # 3️⃣ Group by user
         {"$group": {
             "_id": "$user_id",
-            "userName": {"$first": "$user_id"},  # use ID as username
             "totalGames": {"$sum": 1},
             **score_field
         }},
 
-        # 4️⃣ Sort by score descending
+        # 4️⃣ Lookup username from users collection
+        {"$lookup": {
+            "from": "users",
+            "localField": "_id",
+            "foreignField": "user_id",
+            "as": "user_info"
+        }},
+        {"$set": {"userName": {"$arrayElemAt": ["$user_info.loging", 0]}}},
+
+        # 5️⃣ Sort by score descending
         {"$sort": {list(score_field.keys())[0]: -1}},
 
-        # 5️⃣ Rank users
+        # 6️⃣ Rank users
         {"$setWindowFields": {
             "sortBy": {list(score_field.keys())[0]: -1},
             "output": {"place": {"$rank": {}}}
         }},
     ]
 
-    # 6️⃣ Apply limit for public leaderboard
+    # 7️⃣ Apply limit for public leaderboard
     if limit and not me_only:
         pipeline.append({"$limit": limit})
 
-    # 7️⃣ Filter for current user if me_only
+    # 8️⃣ Filter for current user if me_only
     if me_only:
         if not current_user_id:
             raise ValueError("current_user_id must be provided when me_only is True")
         pipeline.append({"$match": {"_id": current_user_id}})
 
-    # 8️⃣ Final projection
+    # 9️⃣ Final projection
     pipeline.append({
         "$project": {
             "id": "$_id",
