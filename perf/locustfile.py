@@ -27,7 +27,7 @@ class ClickerMicroservicesUser(HttpUser):
         if CREATE_USER_ON_START:
             unique = f"{TEST_LOGIN}_{int(time.time())}_{random.randint(1000,9999)}"
             signup_payload = {
-                "login": unique,
+                "loging": unique,
                 "password": TEST_PASSWORD,
                 "email": f"{unique}@example.com",
             }
