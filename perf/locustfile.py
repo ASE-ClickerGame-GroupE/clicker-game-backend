@@ -5,12 +5,10 @@ from locust import HttpUser, task, between
 
 USER_SVC = os.getenv("USER_SVC", "http://127.0.0.1:8000")
 GAME_SVC = os.getenv("GAME_SVC", "http://127.0.0.1:8001")
-#LEADER_SVC = os.getenv("LEADER_SVC", "http://127.0.0.1:8002")
 
-TEST_LOGIN = os.getenv("TEST_LOGIN", "testuser")
+TEST_LOGIN = os.getenv("TEST_LOGIN", "perfuser")
 TEST_PASSWORD = os.getenv("TEST_PASSWORD", "secret123")
 CREATE_USER_ON_START = os.getenv("CREATE_USER_ON_START", "false").lower() == "true"
-ENABLE_LEADERBOARD = os.getenv("ENABLE_LEADERBOARD", "false").lower() == "true"
 
 
 class ClickerMicroservicesUser(HttpUser):
@@ -19,15 +17,16 @@ class ClickerMicroservicesUser(HttpUser):
 
     def on_start(self):
         self.auth_headers = {}
-        self.session_id = None
 
+        # health checks (named)
         self.client.get(f"{USER_SVC}/health", name="user/health")
         self.client.get(f"{GAME_SVC}/health", name="game/health")
 
+        # create user (optional) - IMPORTANT: backend expects "loging"
         if CREATE_USER_ON_START:
             unique = f"{TEST_LOGIN}_{int(time.time())}_{random.randint(1000,9999)}"
             signup_payload = {
-                "loging": unique,
+                "loging": unique,   # <-- NOT "login"
                 "password": TEST_PASSWORD,
                 "email": f"{unique}@example.com",
             }
@@ -46,6 +45,7 @@ class ClickerMicroservicesUser(HttpUser):
         else:
             login_value = TEST_LOGIN
 
+        # token (OAuth2PasswordRequestForm uses username/password)
         with self.client.post(
             f"{USER_SVC}/auth/token",
             data={"username": login_value, "password": TEST_PASSWORD},
@@ -108,10 +108,3 @@ class ClickerMicroservicesUser(HttpUser):
             headers=self.auth_headers,
             name="game/game/list",
         )
-
-    #@task(1)
-    #def leaderboard_health(self):
-     #   if not ENABLE_LEADERBOARD:
-      #      return
-
-       # self.client.get(f"{LEADER_SVC}/health", name="leader/health")

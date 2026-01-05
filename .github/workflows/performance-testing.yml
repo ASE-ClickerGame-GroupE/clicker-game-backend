@@ -22,20 +22,16 @@ jobs:
           --health-retries=20
 
     env:
-      # Auth/JWT
       SECRET_KEY: my_local_dev_secret
       ALGORITHM: HS256
 
-      # Service URLs
       USER_SVC: http://127.0.0.1:8000
       GAME_SVC: http://127.0.0.1:8001
 
-      # Perf test user
       TEST_LOGIN: perfuser
       TEST_PASSWORD: secret123
       CREATE_USER_ON_START: "false"
 
-      # Mongo (for both services)
       MONGODB_URI: mongodb://127.0.0.1:27017
       MONGODB_DB: ClickerDatabase
 
@@ -53,9 +49,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install locust
-          # Needed by FastAPI for OAuth2PasswordRequestForm (token endpoint)
           pip install python-multipart
-          # Needed if you use passlib + bcrypt
           pip install "passlib[bcrypt]"
 
       - name: Start services (with env injected)
@@ -66,7 +60,6 @@ jobs:
           MONGODB_URI="${MONGODB_URI}" MONGODB_DB="${MONGODB_DB}" SECRET_KEY="${SECRET_KEY}" ALGORITHM="${ALGORITHM}" \
             uvicorn game_service.app.main:app --host 127.0.0.1 --port 8001 > game.log 2>&1 &
 
-          # wait for both health endpoints
           for i in {1..90}; do
             curl -sf http://127.0.0.1:8000/health && curl -sf http://127.0.0.1:8001/health && break
             sleep 1
@@ -77,18 +70,10 @@ jobs:
           curl -s -o signup_out.txt -w "\nHTTP:%{http_code}\n" \
             -X POST http://127.0.0.1:8000/auth/signup \
             -H "Content-Type: application/json" \
-            -d "{\"login\":\"${TEST_LOGIN}\",\"password\":\"${TEST_PASSWORD}\",\"email\":\"${TEST_LOGIN}@example.com\"}"
+            -d "{\"loging\":\"${TEST_LOGIN}\",\"password\":\"${TEST_PASSWORD}\",\"email\":\"${TEST_LOGIN}@example.com\"}"
 
           echo "=== SIGNUP RESPONSE ==="
           cat signup_out.txt
-
-      - name: Debug signup failure (show logs)
-        if: always()
-        run: |
-          echo "=== USER LOG (tail 200) ==="
-          tail -n 200 user.log || true
-          echo "=== GAME LOG (tail 200) ==="
-          tail -n 200 game.log || true
 
       - name: Run Locust (headless)
         run: |
@@ -101,7 +86,7 @@ jobs:
             --csv=locust_stats \
             --host=http://127.0.0.1
 
-      - name: Dump service logs (final)
+      - name: Dump service logs
         if: always()
         run: |
           echo "=== USER LOG (tail 400) ==="
