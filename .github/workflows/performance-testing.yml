@@ -10,25 +10,22 @@ jobs:
   performance:
     runs-on: ubuntu-latest
 
-    services:
-      mongodb:
-        image: mongo:7
-        ports:
-          - 27017:27017
-
     env:
-      MONGODB_URI: mongodb://127.0.0.1:27017
-      MONGODB_DB: ClickerDatabase
       SECRET_KEY: my_local_dev_secret
       ALGORITHM: HS256
 
-      TEST_PASSWORD: secret123
       USER_SVC: http://127.0.0.1:8000
       GAME_SVC: http://127.0.0.1:8001
 
-      AUTH_TOKEN_URL_IN_USER_SERVICE: http://127.0.0.1:8000/auth/token
-      CREATE_USER_ON_START: "true"
-      ENABLE_LEADERBOARD: "false"
+      TEST_LOGIN: perfuser
+      TEST_PASSWORD: secret123
+
+      
+      CREATE_USER_ON_START: "false"
+
+   
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      MONGODB_DB: ${{ secrets.MONGODB_DB }}
 
     steps:
       - name: Checkout
@@ -44,20 +41,34 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install locust
-          pip install "python-jose[cryptography]"
 
       - name: Start services
         run: |
-          uvicorn user_service.app.main:app --host 127.0.0.1 --port 8000 &
-          uvicorn game_service.app.main:app --host 127.0.0.1 --port 8001 &
+          # start in background + log to files
+          uvicorn user_service.app.main:app --host 127.0.0.1 --port 8000 > user.log 2>&1 &
+          uvicorn game_service.app.main:app --host 127.0.0.1 --port 8001 > game.log 2>&1 &
 
-          for i in {1..60}; do
+          # wait for health
+          for i in {1..40}; do
             curl -sf http://127.0.0.1:8000/health && curl -sf http://127.0.0.1:8001/health && break
             sleep 1
           done
 
-          curl -i http://127.0.0.1:8000/health
-          curl -i http://127.0.0.1:8001/health
+          echo "=== USER LOG (tail) ==="
+          tail -n 200 user.log || true
+          echo "=== GAME LOG (tail) ==="
+          tail -n 200 game.log || true
+
+      - name: Pre-create perf user (one time)
+        run: |
+          # if signup expects different field name (login vs loging), this will show instantly
+          curl -s -o signup_out.txt -w "\nHTTP:%{http_code}\n" \
+            -X POST http://127.0.0.1:8000/auth/signup \
+            -H "Content-Type: application/json" \
+            -d "{\"login\":\"${TEST_LOGIN}\",\"password\":\"${TEST_PASSWORD}\",\"email\":\"${TEST_LOGIN}@example.com\"}"
+
+          echo "=== SIGNUP RESPONSE ==="
+          cat signup_out.txt
 
       - name: Run Locust (headless)
         run: |
@@ -69,6 +80,14 @@ jobs:
             -t 2m \
             --csv=locust_stats \
             --host=http://127.0.0.1
+
+      - name: Dump service logs
+        if: always()
+        run: |
+          echo "=== USER LOG (tail 400) ==="
+          tail -n 400 user.log || true
+          echo "=== GAME LOG (tail 400) ==="
+          tail -n 400 game.log || true
 
       - name: Check thresholds
         run: |
