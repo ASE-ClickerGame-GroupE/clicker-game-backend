@@ -8,6 +8,7 @@ GAME_SVC = os.getenv("GAME_SVC", "http://127.0.0.1:8001")
 
 TEST_LOGIN = os.getenv("TEST_LOGIN", "perfuser")
 TEST_PASSWORD = os.getenv("TEST_PASSWORD", "secret123")
+
 CREATE_USER_ON_START = os.getenv("CREATE_USER_ON_START", "false").lower() == "true"
 
 
@@ -18,15 +19,16 @@ class ClickerMicroservicesUser(HttpUser):
     def on_start(self):
         self.auth_headers = {}
 
-        # health checks (named)
+        # health checks (no auth)
         self.client.get(f"{USER_SVC}/health", name="user/health")
         self.client.get(f"{GAME_SVC}/health", name="game/health")
 
-        # create user (optional) - IMPORTANT: backend expects "loging"
+        # Decide which user to login with
         if CREATE_USER_ON_START:
             unique = f"{TEST_LOGIN}_{int(time.time())}_{random.randint(1000,9999)}"
+
             signup_payload = {
-                "loging": unique,   # <-- NOT "login"
+                "loging": unique,  # IMPORTANT: your API expects "loging"
                 "password": TEST_PASSWORD,
                 "email": f"{unique}@example.com",
             }
@@ -45,7 +47,7 @@ class ClickerMicroservicesUser(HttpUser):
         else:
             login_value = TEST_LOGIN
 
-        # token (OAuth2PasswordRequestForm uses username/password)
+        # login -> token
         with self.client.post(
             f"{USER_SVC}/auth/token",
             data={"username": login_value, "password": TEST_PASSWORD},
@@ -87,11 +89,7 @@ class ClickerMicroservicesUser(HttpUser):
         with self.client.post(
             f"{GAME_SVC}/game/finish",
             headers=self.auth_headers,
-            json={
-                "session_id": session_id,
-                "scores": {},
-                "finished_at": time.time(),
-            },
+            json={"session_id": session_id, "scores": {}, "finished_at": time.time()},
             name="game/game/finish",
             catch_response=True,
         ) as resp:
