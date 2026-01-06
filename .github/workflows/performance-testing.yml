@@ -2,9 +2,9 @@ name: Performance Testing
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main,development ]
   push:
-    branches: [ feature/performance-testing ]
+    branches: [ main,development ]
 
 jobs:
   performance:
