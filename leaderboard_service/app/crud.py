@@ -40,14 +40,16 @@ async def get_leaderboard(
             **score_field
         }},
 
-        # 4️⃣ Lookup username from users collection
-        {"$lookup": {
-            "from": "users",
-            "localField": "_id",
-            "foreignField": "user_id",
-            "as": "user_info"
-        }},
-        {"$set": {"userName": {"$arrayElemAt": ["$user_info.loging", 0]}}},
+        # 🔹 Join users collection to get loging
+        {
+            "$lookup": {
+              "from": "users",
+              "localField": "_id",
+              "foreignField": "user_id",
+              "as": "user"
+          }
+        },
+        {"$unwind": "$user"},
 
         # 5️⃣ Sort by score descending
         {"$sort": {list(score_field.keys())[0]: -1}},
@@ -73,7 +75,7 @@ async def get_leaderboard(
     pipeline.append({
         "$project": {
             "id": "$_id",
-            "userName": 1,
+            "userName": "$user.loging",
             "totalGames": 1,
             group_by: 1,
             "place": 1,
