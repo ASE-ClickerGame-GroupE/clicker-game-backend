@@ -1,11 +1,10 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 
 class LeaderboardEntry(BaseModel):
-    session_id: str
-    user_id: str
-    difficulty: str
-    score: int
-    hits: int
-    misses: int
-    duration_s: Optional[float] = None
+    id: str
+    userName: str
+    totalGames: int
+    totalScores: Optional[int] = None
+    bestScore: Optional[int] = None
+    place: int
