@@ -159,3 +159,20 @@ jobs:
           # Add current directory to PYTHONPATH so we can import 'user_service.app...'
           export PYTHONPATH=$PYTHONPATH:$(pwd)
           pytest tests/integration
+
+  # ==========================================
+  # JOB 5: SONARCLOUD SCAN
+  # ==========================================
+  sonarcloud:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    needs: [ test-game-service, test-user-service, test-leaderboard-service, integration-tests ]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: 72275105b18d5ea7ad8d353e04f31d4d646e68e9
