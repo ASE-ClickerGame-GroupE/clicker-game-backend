@@ -31,7 +31,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:
             raise HTTPException(status_code=401, detail="Invalid token payload")
         return TokenData(user_id=uid, loging=loging or "Unknown")
     except JWTError:
-        print("GS JWTError:", repr(e))
+        
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 async def get_current_user_uuid(token: str = Depends(oauth2_scheme)) -> str:
@@ -45,3 +45,5 @@ async def get_current_user_uuid(token: str = Depends(oauth2_scheme)) -> str:
         return user_id
     except JWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+
