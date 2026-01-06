@@ -15,7 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # 1. Check if files in game_service changed
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -23,28 +22,33 @@ jobs:
             game:
               - 'game_service/**'
 
-      # 2. Setup Python
       - name: Set up Python 3.13
         if: steps.filter.outputs.game == 'true'
         uses: actions/setup-python@v4
         with:
           python-version: '3.13'
 
-      # 3. Install Dependencies
       - name: Install Dependencies
         if: steps.filter.outputs.game == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r game_service/requirements.txt
-          pip install pytest pytest-asyncio httpx
+          # CHANGED: Added pytest-cov
+          pip install pytest pytest-asyncio httpx pytest-cov
 
-      # 4. Run Tests
-      # We add game_service to PYTHONPATH so imports work exactly like they do locally
-      - name: Run Pytest
+      - name: Run Pytest & Generate Coverage
         if: steps.filter.outputs.game == 'true'
         run: |
           export PYTHONPATH=$PYTHONPATH:$(pwd)/game_service
-          pytest game_service
+          # CHANGED: Added --cov and --cov-report
+          pytest game_service --cov=game_service/app --cov-report=xml:coverage-game.xml
+
+      - name: Upload Coverage Artifact
+        if: steps.filter.outputs.game == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-game
+          path: coverage-game.xml
 
   # ==========================================
   # JOB 2: LEADERBOARD SERVICE
@@ -72,13 +76,22 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r leaderboard_service/requirements.txt
-          pip install pytest pytest-asyncio httpx
+          # CHANGED: Added pytest-cov
+          pip install pytest pytest-asyncio httpx pytest-cov
 
-      - name: Run Pytest
+      - name: Run Pytest & Generate Coverage
         if: steps.filter.outputs.leaderboard == 'true'
         run: |
           export PYTHONPATH=$PYTHONPATH:$(pwd)/leaderboard_service
-          pytest leaderboard_service
+          # CHANGED: Added --cov and --cov-report
+          pytest leaderboard_service --cov=leaderboard_service/app --cov-report=xml:coverage-leaderboard.xml
+
+      - name: Upload Coverage Artifact
+        if: steps.filter.outputs.leaderboard == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-leaderboard
+          path: coverage-leaderboard.xml
 
   # ==========================================
   # JOB 3: USER SERVICE
@@ -106,14 +119,22 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r user_service/requirements.txt
-          pip install pytest pytest-asyncio httpx
+          # CHANGED: Added pytest-cov
+          pip install pytest pytest-asyncio httpx pytest-cov
 
-      - name: Run Pytest
+      - name: Run Pytest & Generate Coverage
         if: steps.filter.outputs.user == 'true'
         run: |
           export PYTHONPATH=$PYTHONPATH:$(pwd)/user_service
-          pytest user_service
-          
+          # CHANGED: Added --cov and --cov-report
+          pytest user_service --cov=user_service/app --cov-report=xml:coverage-user.xml
+
+      - name: Upload Coverage Artifact
+        if: steps.filter.outputs.user == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-user
+          path: coverage-user.xml
 
   # ==========================================
   # JOB 4: INTEGRATION TESTS
@@ -121,7 +142,6 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     services:
-      # Spin up a real MongoDB container for the tests
       mongo:
         image: mongo:7.0
         ports:
@@ -143,12 +163,12 @@ jobs:
       - name: Install All Dependencies
         run: |
           python -m pip install --upgrade pip
-
           pip install -r user_service/requirements.txt
           pip install -r game_service/requirements.txt
-          pip install pytest pytest-asyncio httpx motor
+          # CHANGED: Added pytest-cov
+          pip install pytest pytest-asyncio httpx motor pytest-cov
 
-      - name: Run Integration Tests
+      - name: Run Integration Tests & Generate Coverage
         env:
           SECRET_KEY: "ci_integration_secret"
           ALGORITHM: "HS256"
@@ -156,9 +176,19 @@ jobs:
           MONGODB_DB: "test_integration_db"
           AUTH_TOKEN_URL_IN_USER_SERVICE: "http://dummy/auth/token"
         run: |
-          # Add current directory to PYTHONPATH so we can import 'user_service.app...'
           export PYTHONPATH=$PYTHONPATH:$(pwd)
-          pytest tests/integration
+          # CHANGED: Report coverage for ALL services involved in integration
+          pytest tests/integration \
+            --cov=game_service/app \
+            --cov=user_service/app \
+            --cov=leaderboard_service/app \
+            --cov-report=xml:coverage-integration.xml
+
+      - name: Upload Integration Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-integration
+          path: coverage-integration.xml
 
   # ==========================================
   # JOB 5: SONARCLOUD SCAN
@@ -172,7 +202,14 @@ jobs:
         with:
           fetch-depth: 0
 
+
+      - name: Download all coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
-          SONAR_TOKEN: 72275105b18d5ea7ad8d353e04f31d4d646e68e9
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
