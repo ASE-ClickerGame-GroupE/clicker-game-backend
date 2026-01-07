@@ -1,8 +1,6 @@
 from typing import List, Optional
 from .db import get_db
 from .models import LeaderboardEntry
-from pymongo import DESCENDING
-
 
 async def get_leaderboard(
     group_by: str = "totalScores",
@@ -15,8 +13,10 @@ async def get_leaderboard(
     # Determine the score calculation
     if group_by == "totalScores":
         score_field = {"totalScores": {"$sum": "$user_score"}}
+        sort_field = "totalScores"
     elif group_by == "bestScore":
         score_field = {"bestScore": {"$max": "$user_score"}}
+        sort_field = "bestScore"
     else:
         raise ValueError("Invalid group_by value")
 
@@ -30,7 +30,7 @@ async def get_leaderboard(
             "scores": 1,
             "finished_at": 1
         }},
-        {"$unwind": "$user_id"},  # create one doc per user in session
+        {"$unwind": "$user_id"},
         {"$set": {"user_score": {"$getField": {"field": "$user_id", "input": "$scores"}}}},
 
         # 3️⃣ Group by user
@@ -52,11 +52,11 @@ async def get_leaderboard(
         {"$unwind": "$user"},
 
         # 5️⃣ Sort by score descending
-        {"$sort": {list(score_field.keys())[0]: -1}},
+        {"$sort": {sort_field: -1}},
 
         # 6️⃣ Rank users
         {"$setWindowFields": {
-            "sortBy": {list(score_field.keys())[0]: -1},
+            "sortBy": {sort_field: -1},
             "output": {"place": {"$rank": {}}}
         }},
     ]

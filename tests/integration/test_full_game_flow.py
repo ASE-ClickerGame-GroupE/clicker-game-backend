@@ -5,9 +5,12 @@ from httpx import AsyncClient, ASGITransport
 from motor.motor_asyncio import AsyncIOMotorClient
 
 # Import the actual FastAPI apps
-# We need to ensure python can find these.
 from user_service.app.main import app as user_app
 from game_service.app.main import app as game_app
+
+# Import the DB modules directly so we can patch them
+from user_service.app import db as user_db
+from game_service.app import db as game_db
 
 # Shared Test Config
 TEST_DB_NAME = "test_integration_db"
@@ -26,16 +29,25 @@ def anyio_backend():
 
 @pytest_asyncio.fixture(scope="module", loop_scope="module")
 async def db_cleanup():
-    """Clean up the test database before and after tests"""
+    # 1. Force User Service to use Test DB
+    user_db.MONGODB_URI = MONGO_URI
+    user_db.MONGODB_DB = TEST_DB_NAME
+    user_db._client = None  # Reset client so it reconnects with new URI
+
+    # 2. Force Game Service to use Test DB
+    game_db.MONGODB_URI = MONGO_URI
+    game_db.MONGODB_DB = TEST_DB_NAME
+    game_db._client = None
+
+    # 3. Clean the DB
     client = AsyncIOMotorClient(MONGO_URI)
-    # Clean before
     await client.drop_database(TEST_DB_NAME)
     yield
     # Clean after
     await client.drop_database(TEST_DB_NAME)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="module")
 async def test_full_user_flow(db_cleanup):
     """
     Integration Test: Signup -> Login -> Start Game -> Finish Game -> Verify
