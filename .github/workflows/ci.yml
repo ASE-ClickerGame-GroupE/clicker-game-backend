@@ -124,6 +124,9 @@ jobs:
 
       - name: Run Pytest & Generate Coverage
         if: steps.filter.outputs.user == 'true'
+        env:
+          SECRET_KEY: "test_secret_key"
+          ALGORITHM: "HS256"
         run: |
           export PYTHONPATH=$PYTHONPATH:$(pwd)/user_service
           # CHANGED: Added --cov and --cov-report
