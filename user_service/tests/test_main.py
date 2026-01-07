@@ -3,6 +3,7 @@ from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, patch
 from user_service.app.main import app
 from user_service.app.db import get_db
+from user_service.app.models import UserInDB
 
 
 @pytest.mark.asyncio
@@ -68,4 +69,57 @@ async def test_get_me_protected():
     assert resp.status_code == 200
     assert resp.json()["loging"] == "me"
 
+    app.dependency_overrides = {}
+
+
+@pytest.mark.asyncio
+async def test_create_user_endpoint_direct():
+    mock_db = AsyncMock()
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    fake_user = UserInDB(user_id="123", loging="direct", created_at=1.0)
+
+    with patch("user_service.app.main.crud.create_user", new=AsyncMock(return_value=fake_user)):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.post("/users", json={"loging": "direct", "password": "p"})
+
+    assert resp.status_code == 200
+    app.dependency_overrides = {}
+
+
+@pytest.mark.asyncio
+async def test_list_users_endpoint():
+    mock_db = AsyncMock()
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    with patch("user_service.app.main.crud.list_users", new=AsyncMock(return_value=[])):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.get("/users")
+
+    assert resp.status_code == 200
+    app.dependency_overrides = {}
+
+
+@pytest.mark.asyncio
+async def test_get_user_endpoint_found():
+    mock_db = AsyncMock()
+    app.dependency_overrides[get_db] = lambda: mock_db
+    fake_user = UserInDB(user_id="1", loging="u", created_at=1.0)
+
+    with patch("user_service.app.main.crud.get_user", new=AsyncMock(return_value=fake_user)):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.get("/users/1")
+    assert resp.status_code == 200
+    app.dependency_overrides = {}
+
+
+@pytest.mark.asyncio
+async def test_get_user_endpoint_404():
+    mock_db = AsyncMock()
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    with patch("user_service.app.main.crud.get_user", new=AsyncMock(return_value=None)):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.get("/users/999")
+    assert resp.status_code == 404
     app.dependency_overrides = {}

@@ -3,8 +3,12 @@ from types import SimpleNamespace
 from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, patch
 from game_service.app.main import app
+
 from game_service.app.auth_deps import TokenData, get_current_user
+from game_service.app import auth_deps
 from game_service.app.main import start_game, finish
+from jose import jwt
+from fastapi import HTTPException
 from game_service.app.models import (
     FinishGameRequest,
     StartGameResponse,
@@ -88,3 +92,47 @@ async def test_finish_game_not_found():
         app.dependency_overrides = {}
 
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_games_list():
+    fake_user = TokenData(user_id="u1", loging="test")
+    fake_sessions = [
+        {
+            "id": "s1",
+            "user_id": ["u1"],
+            "scores": {"u1": 10},
+            "started_at": 100.0,
+            "finished_at": 200.0
+        }
+    ]
+
+    with patch("game_service.app.main.crud.list_sessions", new=AsyncMock(return_value=fake_sessions)):
+        app.dependency_overrides[get_current_user] = lambda: fake_user
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.get("/game")
+
+        app.dependency_overrides = {}
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["id"] == "s1"
+
+
+
+@pytest.mark.asyncio
+async def test_auth_deps_missing_env():
+    with patch.object(auth_deps, "SECRET_KEY", None):
+        with pytest.raises(HTTPException) as exc:
+            await auth_deps.get_current_user("token")
+        assert exc.value.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_auth_deps_invalid_token():
+    with patch.object(auth_deps, "SECRET_KEY", "secret"), \
+            patch.object(auth_deps, "ALGORITHM", "HS256"):
+        with pytest.raises(HTTPException) as exc:
+            await auth_deps.get_current_user("invalid_token")
+        assert exc.value.status_code == 401
