@@ -1,6 +1,6 @@
 import time
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from .db import get_db
 from .models import GameSessionInDB, GameSessionPublicResponse
@@ -20,7 +20,7 @@ async def list_sessions(user_id: Optional[str] = None, limit: int = 50) -> List[
         session_data = {
             "id": doc["session_id"],
             "user_id": doc["user_id"],
-            "scores": doc.get("scores", 0),
+            "scores": doc["scores"],
             "started_at": doc["started_at"],
             "finished_at": doc.get("finished_at")
         }
@@ -36,8 +36,8 @@ async def start_game(user_id: str) -> str:
 
     doc = {
         "session_id": session_id,
-        "user_id": user_id, 
-        "scores": 0,
+        "user_id": [user_id],
+        "scores": {user_id: 0},
         "started_at": time.time(),
         "finished_at": None,
     }
@@ -52,66 +52,34 @@ async def get_session(session_id: str) -> Optional[GameSessionInDB]:
     if not doc:
         return None
 
-    # remove Mongo internal _id
     doc.pop("_id", None)
     return GameSessionInDB(**doc)
 
 
-async def update_click(
-    session_id: str,
-    hit: bool,
-    reaction_ms: int,
-) -> Optional[GameSessionInDB]:
-    """
-    Update score/hits/misses for a click event.
-    """
-    db = get_db()
-    session = await get_session(session_id)
-    if not session:
-        return None
-
-    score = session.scores
-  
-
-    if hit:
-        hits += 1
-        score += max(1, 50 - reaction_ms // 20)
-    else:
-        misses += 1
-        score -= 2
-
-    await db.sessions.update_one(
-        {"session_id": session_id},
-        {"$set": {"scores": score}},
-    )
-
-    return await get_session(session_id)
-
-
 async def finish_game(
         session_id: str,
-        final_score: Optional[int] = None,
+        final_scores: Dict[str, int] = None,
         finished_at: Optional[float] = None,
         ) -> Optional[GameSessionInDB]:
     """
     Mark game as finished and set finished_at timestamp.
     """
     db = get_db()
-    session = await get_session(session_id)
-    if not session:
-        return None
 
     if finished_at is None:
         finished_at = time.time()
 
-    update_data = {"finished_at": finished_at}
-
-    if final_score is not None:
-        update_data["scores"] = final_score
+    all_users = list(final_scores.keys())
 
     await db.sessions.update_one(
         {"session_id": session_id},
-        {"$set": update_data},
+        {
+            "$set": {
+                "scores": final_scores,
+                "user_id": all_users,
+                "finished_at": finished_at
+            }
+        },
     )
 
     return await get_session(session_id)

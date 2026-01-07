@@ -1,0 +1,98 @@
+name: Performance Testing
+
+on:
+  pull_request:
+    branches: [ main,development ]
+  push:
+    branches: [ main,development ]
+
+jobs:
+  performance:
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      # App auth
+      SECRET_KEY: my_local_dev_secret
+      ALGORITHM: HS256
+
+      # Services
+      USER_SVC: http://127.0.0.1:8000
+      GAME_SVC: http://127.0.0.1:8001
+
+      # Test user
+      TEST_LOGIN: perfuser
+      TEST_PASSWORD: secret123
+      CREATE_USER_ON_START: "false"
+
+      # DB for BOTH services (user + game)
+      MONGODB_URI: mongodb://127.0.0.1:27017
+      MONGODB_DB: ClickerDatabase
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Safety net if not in requirements.txt:
+          pip install locust python-multipart passlib[bcrypt]
+
+      - name: Start services
+        run: |
+          uvicorn user_service.app.main:app --host 127.0.0.1 --port 8000 > user.log 2>&1 &
+          uvicorn game_service.app.main:app --host 127.0.0.1 --port 8001 > game.log 2>&1 &
+
+          for i in {1..60}; do
+            curl -sf http://127.0.0.1:8000/health && curl -sf http://127.0.0.1:8001/health && break
+            sleep 1
+          done
+
+      - name: Pre-create perf user (one time)
+        run: |
+          curl -s -o signup_out.txt -w "\nHTTP:%{http_code}\n" \
+            -X POST http://127.0.0.1:8000/auth/signup \
+            -H "Content-Type: application/json" \
+            -d "{\"loging\":\"${TEST_LOGIN}\",\"password\":\"${TEST_PASSWORD}\",\"email\":\"${TEST_LOGIN}@example.com\"}"
+          echo "=== SIGNUP RESPONSE ==="
+          cat signup_out.txt
+
+      - name: Run Locust (headless)
+        run: |
+          locust \
+            -f perf/locustfile.py \
+            --headless \
+            -u 50 \
+            -r 10 \
+            -t 2m \
+            --csv=locust_stats \
+            --host=http://127.0.0.1
+
+      - name: Dump service logs
+        if: always()
+        run: |
+          echo "=== USER LOG (tail 400) ==="
+          tail -n 400 user.log || true
+          echo "=== GAME LOG (tail 400) ==="
+          tail -n 400 game.log || true
+
+      - name: Check thresholds
+        run: |
+          python perf/check_performance.py
